@@ -14,8 +14,8 @@ async function main() {
   // await hre.run('compile');
 
   // We get the contract to deploy
-  const PriceConsumerV3 = await ethers.getContractFactory('PriceConsumerV3');
-  const contract = await PriceConsumerV3.deploy();
+  const PriceConverter = await ethers.getContractFactory('PriceConverter');
+  const contract = await PriceConverter.deploy();
 
   await contract.deployed();
 

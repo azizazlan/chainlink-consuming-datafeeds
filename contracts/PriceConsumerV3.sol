@@ -5,70 +5,46 @@ import 'hardhat/console.sol';
 
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 
-contract PriceConsumerV3 {
-  AggregatorV3Interface internal priceFeedEthUsd;
-  AggregatorV3Interface internal priceFeedGbpUsd;
-  AggregatorV3Interface internal priceFeedOilUsd;
-
+contract PriceConverter {
   /**
-   * Network: Kovan
-   * Aggregator: ETH/USD
-   * Address: 0x9326BFA02ADD2366b30bacB125260Af641031331
+   * A/B where A is called the base, and B is called the quote.
+   * For example EUR/USD is how many U.S dollars to equal one Euro.
+   * U.S Dollar is the quote and Euro is the base.
    */
-  constructor() {
-    priceFeedEthUsd = AggregatorV3Interface(
-      0x9326BFA02ADD2366b30bacB125260Af641031331
+  function getDerivedPrice(
+    address _base,
+    address _quote,
+    uint8 _decimals
+  ) public view returns (int256) {
+    /// Ensure user enter decimal between 0 and 18
+    require(
+      _decimals > uint8(0) && _decimals <= uint8(18),
+      'Invalid _decimals'
     );
-    priceFeedGbpUsd = AggregatorV3Interface(
-      0x28b0061f44E6A9780224AA61BEc8C3Fcb0d37de9
-    );
-    priceFeedOilUsd = AggregatorV3Interface(
-      0x48c9FF5bFD7D12e3C511022A6E54fB1c5b8DC3Ea
-    );
+
+    int256 decimals = int256(10**uint256(_decimals)); // ten to the power of..
+    (, int256 basePrice, , , ) = AggregatorV3Interface(_base).latestRoundData();
+    uint8 baseDecimals = AggregatorV3Interface(_base).decimals();
+    basePrice = scalePrice(basePrice, baseDecimals, _decimals);
+
+    (, int256 quotePrice, , , ) = AggregatorV3Interface(_quote)
+      .latestRoundData();
+    uint8 quoteDecimals = AggregatorV3Interface(_quote).decimals();
+    quotePrice = scalePrice(quotePrice, quoteDecimals, _decimals);
+
+    return (basePrice * decimals) / quotePrice;
   }
 
-  /**
-   * Returns the latest price for ETH/USD
-   */
-  function getLatestPrice_ETH_USD() public view returns (int256) {
-    (
-      ,
-      /*uint80 roundID*/
-      int256 price, /*uint startedAt*/ /*uint timeStamp*/ /*uint80 answeredInRound*/
-      ,
-      ,
-
-    ) = priceFeedEthUsd.latestRoundData();
-    return price;
-  }
-
-  /**
-   * Returns the latest price for GBP/USD
-   */
-  function getLatestPrice_GBP_USD() public view returns (int256) {
-    (
-      ,
-      /*uint80 roundID*/
-      int256 price, /*uint startedAt*/ /*uint timeStamp*/ /*uint80 answeredInRound*/
-      ,
-      ,
-
-    ) = priceFeedGbpUsd.latestRoundData();
-    return price;
-  }
-
-  /**
-   * Returns the latest price for GBP/USD
-   */
-  function getLatestPrice_OIL_USD() public view returns (int256) {
-    (
-      ,
-      /*uint80 roundID*/
-      int256 price, /*uint startedAt*/ /*uint timeStamp*/ /*uint80 answeredInRound*/
-      ,
-      ,
-
-    ) = priceFeedOilUsd.latestRoundData();
-    return price;
+  function scalePrice(
+    int256 _price,
+    uint8 _priceDecimals,
+    uint8 _decimals
+  ) internal pure returns (int256) {
+    if (_priceDecimals < _decimals) {
+      return _price * int256(10**uint256(_decimals - _priceDecimals));
+    } else if (_priceDecimals > _decimals) {
+      return _price / int256(10**uint256(_priceDecimals - _decimals));
+    }
+    return _price;
   }
 }
